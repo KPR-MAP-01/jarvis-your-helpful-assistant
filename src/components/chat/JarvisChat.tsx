@@ -1,39 +1,18 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { ChatHeader } from "./ChatHeader";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { TypingIndicator } from "./TypingIndicator";
-
-interface Message {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: Date;
-}
-
-const JARVIS_RESPONSES = [
-  "Good day. How may I assist you today?",
-  "I've analyzed your request. Here's what I found...",
-  "Running diagnostics now. One moment please.",
-  "Certainly. I'll process that immediately.",
-  "I've compiled the relevant data for you.",
-  "Allow me to elaborate on that matter.",
-  "That's an excellent question. Let me provide some insight.",
-  "I've taken the liberty of preparing a comprehensive response.",
-  "Accessing the database now. Your request is being processed.",
-  "My analysis suggests the following course of action...",
-];
+import { VoiceButton } from "./VoiceButton";
+import { VoiceIndicator } from "./VoiceIndicator";
+import { useJarvisChat } from "@/hooks/useJarvisChat";
+import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
+import { useVoiceSynthesis } from "@/hooks/useVoiceSynthesis";
 
 export const JarvisChat = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      content: "Good day. I am J.A.R.V.I.S., your personal AI assistant. How may I be of service today?",
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
-  const [isTyping, setIsTyping] = useState(false);
+  const { messages, isLoading, sendMessage } = useJarvisChat();
+  const { isListening, transcript, startListening, stopListening, isSupported: sttSupported } = useVoiceRecognition();
+  const { isSpeaking, speak, stop: stopSpeaking, isSupported: ttsSupported } = useVoiceSynthesis();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -42,38 +21,36 @@ export const JarvisChat = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping]);
+  }, [messages, isLoading]);
 
-  const handleSendMessage = (content: string) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content,
-      isUser: true,
-      timestamp: new Date(),
-    };
+  // Handle voice transcript
+  useEffect(() => {
+    if (transcript && !isListening) {
+      handleSendMessage(transcript);
+    }
+  }, [transcript, isListening]);
 
-    setMessages((prev) => [...prev, userMessage]);
-    setIsTyping(true);
+  const handleSendMessage = useCallback(async (content: string) => {
+    const response = await sendMessage(content);
+    if (response && ttsSupported) {
+      speak(response);
+    }
+  }, [sendMessage, speak, ttsSupported]);
 
-    // Simulate JARVIS response
-    setTimeout(() => {
-      const randomResponse =
-        JARVIS_RESPONSES[Math.floor(Math.random() * JARVIS_RESPONSES.length)];
-      
-      const jarvisMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: randomResponse,
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      setIsTyping(false);
-      setMessages((prev) => [...prev, jarvisMessage]);
-    }, 1500 + Math.random() * 1000);
-  };
+  const handleToggleListen = useCallback(() => {
+    if (isListening) {
+      stopListening();
+    } else {
+      stopSpeaking();
+      startListening();
+    }
+  }, [isListening, startListening, stopListening, stopSpeaking]);
 
   return (
     <div className="flex flex-col h-screen max-h-screen bg-background">
+      {/* Voice indicator */}
+      <VoiceIndicator isListening={isListening} isSpeaking={isSpeaking} />
+
       {/* Scan line effect */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-50 opacity-[0.02]">
         <div
@@ -108,16 +85,29 @@ export const JarvisChat = () => {
             timestamp={message.timestamp}
           />
         ))}
-        {isTyping && <TypingIndicator />}
+        {isLoading && <TypingIndicator />}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input area */}
       <div className="p-4 border-t border-border/50">
         <div className="max-w-4xl mx-auto">
-          <ChatInput onSend={handleSendMessage} disabled={isTyping} />
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <ChatInput onSend={handleSendMessage} disabled={isLoading || isListening} />
+            </div>
+            {sttSupported && (
+              <VoiceButton
+                isListening={isListening}
+                isSpeaking={isSpeaking}
+                onToggleListen={handleToggleListen}
+                onStopSpeaking={stopSpeaking}
+                disabled={isLoading}
+              />
+            )}
+          </div>
           <p className="text-center text-[10px] text-muted-foreground mt-3">
-            JARVIS is ready to assist • Powered by Stark Industries
+            JARVIS is ready to assist • Voice enabled • Powered by Stark Industries
           </p>
         </div>
       </div>
