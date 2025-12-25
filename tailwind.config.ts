@@ -78,10 +78,26 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        waveform: {
+          "0%, 100%": { height: "4px" },
+          "25%": { height: "20px" },
+          "50%": { height: "12px" },
+          "75%": { height: "24px" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { 
+            boxShadow: "0 0 5px hsl(var(--primary) / 0.5), 0 0 10px hsl(var(--primary) / 0.3)" 
+          },
+          "50%": { 
+            boxShadow: "0 0 15px hsl(var(--primary) / 0.8), 0 0 30px hsl(var(--primary) / 0.5)" 
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        waveform: "waveform 0.5s ease-in-out infinite",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
       },
     },
   },
